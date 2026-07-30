@@ -70,7 +70,7 @@ macro_rules! sort {
 
             // Sort using a completely random comparison function. This reorders the elements
             // *somehow* and may panic -- the unstable sort delegates its leaves to the standard
-            // library, which panics when the comparator does not implement a total order -- but it
+            // library, which may panic when the comparator does not implement a total order -- but it
             // must never lose elements or cause undefined behavior. After re-sorting with a valid
             // comparator we must recover the original `0..100` permutation.
             let mut v: Vec<_> = (0..100).collect();

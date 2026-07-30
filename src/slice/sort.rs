@@ -266,8 +266,8 @@ where
 /// is turned into a total [`Ordering`](cmp::Ordering) exactly once here, so the conversion is not
 /// duplicated across call sites.
 ///
-/// Note that `sort_unstable_by` panics if `is_less` does not implement a total order, whereas the
-/// old hand-written fallback would merely produce an unspecified permutation.
+/// Note that `sort_unstable_by` may panic if `is_less` does not implement a total order, whereas
+/// the old hand-written fallback would merely produce an unspecified permutation.
 fn sort_leaf<T, F>(v: &mut [T], is_less: &F)
 where
     F: Fn(&T, &T) -> bool,
@@ -1590,9 +1590,29 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::split_for_merge;
+    use super::{sort_leaf, split_for_merge};
     use rand::distr::Uniform;
     use rand::{RngExt, rng};
+    use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+
+    #[test]
+    fn test_sort_leaf_preserves_elements_after_comparator_panic() {
+        let calls = AtomicUsize::new(0);
+        let mut values: Vec<_> = (0..100).rev().collect();
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            sort_leaf(&mut values, &|a, b| {
+                if calls.fetch_add(1, Relaxed) == 10 {
+                    panic!("intentional comparator panic");
+                }
+                a < b
+            });
+        }));
+        assert!(result.is_err());
+
+        sort_leaf(&mut values, &|a, b| a < b);
+        assert_eq!(values, (0..100).collect::<Vec<_>>());
+    }
 
     #[test]
     fn test_split_for_merge() {
